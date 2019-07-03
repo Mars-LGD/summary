@@ -1,7 +1,7 @@
 ##(1) TCP 连接
 1. 三次握手与四次挥手，SYN、FIN、ACK、WAIT
 
-  ![image](http://image.pangrun.net/18-12-25/33726184.jpg)
+  ![img](../../assets/0_131271823564Rx.gif)
 
 2. tcp长连接与http长连接的区别
   tcp长连接的本质是保持连接，需要一些心跳的监控检测机制。

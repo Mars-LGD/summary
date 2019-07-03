@@ -11,9 +11,9 @@
 ## Java基础
 * [集合](java/collections/README.md)
 	* [ArrayList](java/collections/ArrayList.md) 
-	* 
 * [并发](java/concurrent/README.md)
 	* [线程安全的List](java/concurrent/ConcurrentList.md) 
+* [锁](java/lock/README.md)
 
 ## Web开发
 
