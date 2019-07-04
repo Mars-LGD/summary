@@ -131,7 +131,7 @@ private Node addWaiter(Node mode) {
 
 创建好 Node 后，如果队列不为空，使用 cas 的方式将 Node 加入到队列尾。注意，这里只执行了一次修改操作，并且可能因为并发的原因失败。因此修改失败的情况和队列为空的情况，需要进入 enq。
 
-```
+```java
 private Node enq(final Node node) {
     for (;;) {
         Node t = tail;
@@ -149,13 +149,13 @@ private Node enq(final Node node) {
 }
 ```
 
-enq 是个死循环，保证 Node 一定能插入队列。注意到，当队列为空时，会先为头节点创建一个空的 Node，因为**头节点代表获取了锁的线程**，现在还没有，所以先空着。关于enq代码重复的问题参见：https://www.jianshu.com/p/0ad6b6f2099d 。（至今仍无法理解，建议不要太较真）
+enq 是个死循环，保证 Node 一定能插入队列。==注意到，当队列为空时，会先为头节点创建一个空的 Node，因为**头节点代表获取了锁的线程==**，现在还没有，所以先空着。关于enq代码重复的问题参见：https://www.jianshu.com/p/0ad6b6f2099d 。（至今仍无法理解，建议不要太较真）
 
 ### 阻塞等待线程
 
 线程加入队列后，下一步是调用 acquireQueued 阻塞线程。
 
-```
+```java
 final boolean acquireQueued(final Node node, int arg) {
     boolean failed = true;
     try {
@@ -183,20 +183,18 @@ final boolean acquireQueued(final Node node, int arg) {
 
 标记 1 是线程唤醒后尝试获取锁的过程。如果前一个节点正好是 head，表示自己排在第一位，可以马上调用 tryAcquire 尝试。如果获取成功就简单了，直接修改自己为 head。这步是实现公平锁的核心，保证释放锁时，由下个排队线程获取锁。（看到线程解锁时，再看回这里啦）
 
-标记 2 是线程获取锁失败的处理。这个时候，线程可能等着下一次获取，也可能不想要了，Node 变量 waitState 描述了线程的等待状态，一共四种情况：
+### 标记 2 是线程获取锁失败的处理。这个时候，线程可能等着下一次获取，也可能不想要了，Node 变量 waitState 描述了线程的等待状态，一共四种情况：
 
-```
+```java
 static final int CANCELLED =  1;   //取消
 static final int SIGNAL    = -1;     //下个节点需要被唤醒
 static final int CONDITION = -2;  //线程在等待条件触发
 static final int PROPAGATE = -3; //（共享锁）状态需要向后传播
-
-
 ```
 
 shouldParkAfterFailedAcquire 传入当前节点和前节点，根据前节点的状态，判断线程是否需要阻塞。
 
-```
+```java
 private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
   int ws = pred.waitStatus;
   if (ws == Node.SIGNAL)
@@ -211,8 +209,6 @@ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
   }
   return false;
 }
-
-
 ```
 
 *   前节点状态是 SIGNAL 时，当前线程需要阻塞；
@@ -221,16 +217,14 @@ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
 
 如果线程需要阻塞，由 parkAndCheckInterrupt 方法进行操作。
 
-```
+```java
 private final boolean parkAndCheckInterrupt() {
     LockSupport.park(this);
     return Thread.interrupted();
 }
-
-
 ```
 
-parkAndCheckInterrupt 使用了 LockSupport，和 cas 一样，最终使用 UNSAFE 调用 Native 方法实现线程阻塞（以后有机会就分析下 LockSupport 的原理，park 和 unpark 方法作用类似于 wait 和 notify）。最后返回线程唤醒后的中断状态，关于中断，后文会分析。
+parkAndCheckInterrupt 使用了 ==LockSupport，和 cas 一样，最终使用 UNSAFE 调用 Native 方法实现线程阻塞==（以后有机会就分析下 LockSupport 的原理，park 和 unpark 方法作用类似于 wait 和 notify）。最后返回线程唤醒后的中断状态，关于中断，后文会分析。
 
 到这里总结一下获取锁的过程：线程去竞争一个锁，可能成功也可能失败。成功就直接持有资源，不需要进入队列；失败的话进入队列阻塞，等待唤醒后再尝试竞争锁。
 
@@ -238,17 +232,15 @@ parkAndCheckInterrupt 使用了 LockSupport，和 cas 一样，最终使用 UNSA
 
 通过上面详细的获取锁过程分析，释放锁过程大概可以猜到：头节点是获取锁的线程，先移出队列，再通知后面的节点获取锁。
 
-```
+```java
 public void unlock() {
     sync.release(1);
 }
-
-
 ```
 
 ReentrantLock 的 unlock 方法很简单地调用了 AQS 的 release：
 
-```
+```java
 public final boolean release(int arg) {
     if (tryRelease(arg)) {
         Node h = head;
@@ -258,13 +250,11 @@ public final boolean release(int arg) {
     }
     return false;
 }
-
-
 ```
 
 和 lock 的 tryAcquire 一样，unlock 的 tryRelease 同样由 ReentrantLock 实现：
 
-```
+```java
 protected final boolean tryRelease(int releases) {
     int c = getState() - releases;
     if (Thread.currentThread() != getExclusiveOwnerThread())
@@ -277,15 +267,13 @@ protected final boolean tryRelease(int releases) {
     setState(c);
     return free;
 }
-
-
 ```
 
 因为锁是可以重入的，所以每次 lock 会让 state 加 1，对应地每次 unlock 要让 state 减 1，直到为 0 时将独占线程变量设置为空，返回标记是否彻底释放锁。
 
 最后，调用 unparkSuccessor 将头节点的下个节点唤醒：
 
-```
+```java
 private void unparkSuccessor(Node node) {
     int ws = node.waitStatus;
     if (ws < 0)
@@ -301,11 +289,11 @@ private void unparkSuccessor(Node node) {
     if (s != null)
         LockSupport.unpark(s.thread);
 }
-
-
 ```
 
 寻找下个待唤醒的线程是从队列尾向前查询的，找到线程后调用 LockSupport 的 unpark 方法唤醒线程。被唤醒的线程重新执行 acquireQueued 里的循环，就是上文关于 acquireQueued 标记 1 部分，线程重新尝试获取锁。
+
+(后话尾部向前遍历原因：参考enq方法，新加入节点pre指向tail，tail指向新节点，这里后继指向前驱的指针是由CAS操作保证线程安全的。而cas操作之后t.next=node之前，可能会有其他线程进来。所以出现了问题，从尾部向前遍历是一定能遍历到所有的节点。)
 
 ### 中断锁
 
@@ -313,8 +301,6 @@ private void unparkSuccessor(Node node) {
 static void selfInterrupt() {
     Thread.currentThread().interrupt();
 }
-
-
 ```
 
 在 acquire 里还有最后一句代码调用了 selfInterrupt，功能很简单，对当前线程产生一个中断请求。
@@ -325,7 +311,7 @@ static void selfInterrupt() {
 
 第二种情况，LockSupport.park 支持响应中断请求，能够被其他线程通过 interrupt() 唤醒。但这种唤醒并没有用，因为线程前面可能还有等待线程，在 acquireQueued 的循环里，线程会再次被阻塞。parkAndCheckInterrupt 返回的是 Thread.interrupted()，不仅返回中断状态，还会清除中断状态，保证阻塞线程忽略中断。最终 acquireQueued 返回 true 时，真正的中断状态已经被清除，需要调用 selfInterrupt 维持中断状态。
 
-因此普通的 lock 方法并不能被其他线程中断，ReentrantLock 是可以支持中断，需要使用 lockInterruptibly。
+因此==普通的 lock 方法并不能被其他线程中断，ReentrantLock 是可以支持中断，需要使用 lockInterruptibly==。
 
 两者的逻辑基本一样，不同之处是 parkAndCheckInterrupt 返回 true 时，lockInterruptibly 直接 throw new InterruptedException()。
 
@@ -333,20 +319,18 @@ static void selfInterrupt() {
 
 分析完公平锁的实现，还剩下非公平锁，主要区别是获取锁的过程不同。
 
-```
+```java
 final void lock() {
     if (compareAndSetState(0, 1))
         setExclusiveOwnerThread(Thread.currentThread());
     else
         acquire(1);
 }
-
-
 ```
 
 在 NonfairSync 的 lock 方法里，第一步直接尝试将 state 修改为 1，很明显，这是抢先获取锁的过程。如果修改 state 失败，则和公平锁一样，调用 acquire。
 
-```
+```java
 final boolean nonfairTryAcquire(int acquires) {
   final Thread current = Thread.currentThread();
   int c = getState();
@@ -365,11 +349,9 @@ final boolean nonfairTryAcquire(int acquires) {
   }
   return false;
 }
-
-
 ```
 
-nonfairTryAcquire 和 tryAcquire 乍一看几乎一样，差异只是缺少调用 hasQueuedPredecessors。这点体验出公平锁和非公平锁的不同，公平锁会关注队列里排队的情况，老老实实按照 FIFO 的次序；非公平锁只要有机会就抢占，才不管排队的事。
+==nonfairTryAcquire 和 tryAcquire 乍一看几乎一样，差异只是缺少调用 hasQueuedPredecessors==。这点体验出公平锁和非公平锁的不同，公平锁会关注队列里排队的情况，老老实实按照 FIFO 的次序；非公平锁只要有机会就抢占，才不管排队的事。
 
 ### 总结
 
