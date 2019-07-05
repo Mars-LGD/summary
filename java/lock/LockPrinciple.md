@@ -8,7 +8,7 @@
 
 #### 简单的实现
 
-```
+```java
 import java.util.concurrent.atomic.AtomicReference;
 
 public class SpinLock {
@@ -17,7 +17,7 @@ public class SpinLock {
    public void lock() {
        Thread currentThread = Thread.currentThread();
 
-              // 如果锁未被占用，则设置当前线程为锁的拥有者
+       // 如果锁未被占用，则设置当前线程为锁的拥有者
        while (!owner.compareAndSet(null, currentThread)) {
        }
    }
@@ -25,12 +25,10 @@ public class SpinLock {
    public void unlock() {
        Thread currentThread = Thread.currentThread();
 
-              // 只有锁的拥有者才能释放锁
+       // 只有锁的拥有者才能释放锁
        owner.compareAndSet(currentThread, null);
    }
 }
-
-
 ```
 
 SimpleSpinLock 里有一个 owner 属性持有锁当前拥有者的线程的引用，如果该引用为 null，则表示锁未被占用，不为 null 则被占用。
@@ -40,18 +38,19 @@ SimpleSpinLock 里有一个 owner 属性持有锁当前拥有者的线程的引�
 #### 缺点
 
 1.  CAS 操作需要硬件的配合；
-2.  保证各个 CPU 的缓存（L1、L2、L3、跨 CPU Socket、主存）的数据一致性，通讯开销很大，在多处理器系统上更严重；
-3.  没法保证公平性，不保证等待进程 / 线程按照 FIFO 顺序获得锁。
+2.  ==保证各个 CPU 的缓存（L1、L2、L3、跨 CPU Socket、主存）的数据一致性，通讯开销很大==，在多处理器系统上更严重；
+3.  ==没法保证公平性==，不保证等待进程 / 线程按照 FIFO 顺序获得锁。
+4.  ==自旋占用CPU，对CPU的消耗比较大==。
 
 ### Ticket Lock
 
-Ticket Lock 是为了解决上面的公平性问题，类似于现实中银行柜台的排队叫号：锁拥有一个服务号，表示正在服务的线程，还有一个排队号；每个线程尝试获取锁之前先拿一个排队号，然后不断轮询锁的当前服务号是否是自己的排队号，如果是，则表示自己拥有了锁，不是则继续轮询。
+==Ticket Lock 是为了解决上面的公平性问题，类似于现实中银行柜台的排队叫号==：锁拥有一个==服务号==，表示正在服务的线程，还有一个==排队号==；每个线程尝试获取锁之前先拿一个排队号，然后不断轮询锁的当前服务号是否是自己的排队号，如果是，则表示自己拥有了锁，不是则继续轮询。
 
 当线程释放锁时，将服务号加 1，这样下一个线程看到这个变化，就退出自旋。
 
 #### 简单的实现
 
-```
+```java
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TicketLock {
@@ -59,14 +58,14 @@ public class TicketLock {
    private AtomicInteger ticketNum = new AtomicInteger(); // 排队号
 
    public int lock() {
-         // 首先原子性地获得一个排队号
-         int myTicketNum = ticketNum.getAndIncrement();
+        // 首先原子性地获得一个排队号
+        int myTicketNum = ticketNum.getAndIncrement();
 
-              // 只要当前服务号不是自己的就不断轮询
-       while (serviceNum.get() != myTicketNum) {
-       }
+        // 只要当前服务号不是自己的就不断轮询
+        while (serviceNum.get() != myTicketNum) {
+        }
 
-       return myTicketNum;
+        return myTicketNum;
     }
 
     public void unlock(int myTicket) {
@@ -75,13 +74,11 @@ public class TicketLock {
         serviceNum.compareAndSet(myTicket, next);
     }
 }
-
-
 ```
 
 #### 缺点
 
-Ticket Lock 虽然解决了公平性的问题，但是多处理器系统上，每个进程 / 线程占用的处理器都在读写同一个变量 serviceNum ，每次读写操作都必须在多个处理器缓存之间进行缓存同步，这会导致繁重的系统总线和内存的流量，大大降低系统整体的性能。
+Ticket Lock 虽然解决了公平性的问题，但是多处理器系统上，==每个进程 / 线程占用的处理器都在读写同一个变量 serviceNum ，每次读写操作都必须在多个处理器缓存之间进行缓存同步，这会导致繁重的系统总线和内存的流量==，大大降低系统整体的性能。
 
 下面介绍的 CLH 锁和 MCS 锁都是为了解决这个问题的。
 
@@ -91,9 +88,9 @@ CLH 的发明人是：Craig，Landin and Hagersten。
 
 ### MCS 锁
 
-MCS Spinlock 是一种基于链表的可扩展、高性能、公平的自旋锁，申请线程只在本地变量上自旋，直接前驱负责通知其结束自旋，从而极大地减少了不必要的处理器缓存同步的次数，降低了总线和内存的开销。
+MCS Spinlock 是一种基于链表的可扩展、高性能、公平的自旋锁，==申请线程只在本地变量上自旋，直接前驱负责通知其结束自旋，从而极大地减少了不必要的处理器缓存同步的次数，降低了总线和内存的开销==。
 
-```
+```java
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 public class MCSLock {
@@ -139,15 +136,13 @@ public class MCSLock {
         currentThread.next = null;// for GC
     }
 }
-
-
 ```
 
 ### CLH 锁
 
-CLH 锁也是一种基于链表的可扩展、高性能、公平的自旋锁，申请线程只在本地变量上自旋，它不断轮询前驱的状态，如果发现前驱释放了锁就结束自旋。
+CLH 锁也是一种基于链表的可扩展、高性能、公平的自旋锁，==申请线程只在本地变量上自旋，它不断轮询前驱的状态，如果发现前驱释放了锁就结束自旋==。
 
-```
+```java
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 public class CLHLock {
@@ -156,9 +151,9 @@ public class CLHLock {
     }
 
     @SuppressWarnings("unused" )
-    private volatile CLHNode tail ;
+    private volatile CLHNode tail;
     private static final AtomicReferenceFieldUpdater<CLHLock, CLHNode> UPDATER = AtomicReferenceFieldUpdater
-                  . newUpdater(CLHLock.class, CLHNode .class , "tail" );
+                  .newUpdater(CLHLock.class, CLHNode .class , "tail");
 
     public void lock(CLHNode currentThread) {
         CLHNode preNode = UPDATER.getAndSet( this, currentThread);
@@ -170,14 +165,12 @@ public class CLHLock {
 
     public void unlock(CLHNode currentThread) {
         // 如果队列里只有当前线程，则释放对当前线程的引用（for GC）。
-        if (!UPDATER .compareAndSet(this, currentThread, null)) {
+        if (!UPDATER.compareAndSet(this, currentThread, null)) {
             // 还有后续线程
             currentThread. isLocked = false ;// 改变状态，让后续线程结束自旋
         }
     }
 }
-
-
 ```
 
 ### CLH 锁 与 MCS 锁 的比较
@@ -188,7 +181,7 @@ public class CLHLock {
 差异：
 
 1.  从代码实现来看，CLH 比 MCS 要简单得多。
-2.  从自旋的条件来看，CLH 是在前驱节点的属性上自旋，而 MCS 是在本地属性变量上自旋。
+2.  ==从自旋的条件来看，CLH 是在前驱节点的属性上自旋，而 MCS 是在本地属性变量上自旋==。
 3.  从链表队列来看，CLH 的队列是隐式的，CLHNode 并不实际持有下一个节点；MCS 的队列是物理存在的。
 4.  CLH 锁释放时只需要改变自己的属性，MCS 锁释放则需要改变后继节点的属性。
 
