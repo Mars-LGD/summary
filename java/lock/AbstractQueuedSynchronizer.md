@@ -345,7 +345,7 @@ Condition Queue 是一个并发不安全的, 只用于独占模式的队列 (PS:
 
 ### 4. Condition Queue 入队列方法 addConditionWaiter
 
-```
+```java
 /**
  * Adds a new waiter to wait queue
  * 将当前线程封装成一个 Node 节点 放入大 Condition Queue 里面
@@ -370,15 +370,13 @@ private Node addConditionWaiter(){
     lastWaiter = node;                                // 8. 重新赋值 lastWaiter
     return node;
 }
-
-
 ```
 
 ### 5. Condition Queue 删除 Cancelled 节点的方法 unlinkCancelledWaiters
 
 当 Node 在 Condition Queue 中, 若状态不是 CONDITION, 则一定是 被中断或超时
 
-```
+```java
 /**
  * 在 调用 addConditionWaiter 将线程放入 Condition Queue 里面时 或 awiat 方法获取 差不多结束时 进行清理 Condition queue 里面的因 timeout/interrupt 而还存在的节点
  * 这个删除操作比较巧妙, 其中引入了 trail 节点， 可以理解为traverse整个 Condition Queue 时遇到的最后一个有效的节点
@@ -404,15 +402,13 @@ private void unlinkCancelledWaiters(){
         t = next;
     }
 }
-
-
 ```
 
 ### 6. Condition Queue 转移节点的方法 transferForSignal
 
 transferForSignal 只有在节点被正常唤醒才调用的正常转移的方法
 
-```
+```java
 /**
  * 将 Node 从Condition Queue 转移到 Sync Queue 里面
  * 在调用transferForSignal之前, 会 first.nextWaiter = null;
@@ -439,15 +435,13 @@ final boolean transferForSignal(Node node){
     }
     return true;
 }
-
-
 ```
 
 ### 7. Condition Queue 转移节点的方法 transferAfterCancelledWait
 
 transferAfterCancelledWait 在节点获取 lock 时被中断或获取超时才调用的转移方法
 
-```
+```java
 /**
  * 将 Condition Queue 中因 timeout/interrupt 而唤醒的节点进行转移
  */
@@ -468,8 +462,6 @@ final boolean transferAfterCancelledWait(Node node){
     }
     return false;
 }
-
-
 ```
 
 ### 8. AbstractQueuedSynchronizer 内部 Queue Sync Queue
@@ -487,7 +479,7 @@ Sync Queue 是一个类似于 CLH Queue 的并发安全, 双向, 用于独占和
 
 这里有个地方需要注意, 就是初始化 head, tail 的节点, 不一定是 head.next, 因为期间可能被其他的线程进行抢占了
 
-```
+```java
 /**
  * Creates and enqueues node for current thread and given mode.
  *
@@ -547,8 +539,6 @@ private Node enq(final Node node){
         }
     }
 }
-
-
 ```
 
 ### 10. Sync Queue 节点出 Queue 方法
@@ -558,7 +548,7 @@ private Node enq(final Node node){
 1.  新节点获取 lock, 调用 setHead 抢占 head, 并且剔除原 head
 2.  节点因被中断或获取超时而进行 cancelled, 最后被剔除
 
-```
+```java
 /**
  * 设置 head 节点(在独占模式没有并发的可能, 当共享的模式有可能)
  */
@@ -620,8 +610,6 @@ private void cancelAcquire(Node node) {
         node.next = node; // help GC
     }
 }
-
-
 ```
 
 ### 11. AbstractQueuedSynchronizer 独占的获取 lock
@@ -633,8 +621,6 @@ private void cancelAcquire(Node node) {
 2. tryAcquire 调用获取失败, 将当前的线程封装成 Node 加入到 Sync Queue 里面(调用addWaiter), 等待获取 signal 信号
 3. 调用 acquireQueued 进行自旋的方式获取锁(有可能会 repeatedly blocking and unblocking)
 4. 根据acquireQueued的返回值判断在获取lock的过程中是否被中断, 若被中断, 则自己再中断一下(selfInterrupt), 若是响应中断的则直接抛出异常
-
-
 ```
 
 独占方式获取 lock 主要分成下面 3 类:
@@ -643,13 +629,11 @@ private void cancelAcquire(Node node) {
 1. acquire 不响应中断的获取lock, 这里的不响应中断指的是线程被中断后会被唤醒, 并且继续获取lock,在方法返回时, 根据刚才的获取过程是否被中断来决定是否要自己中断一下(方法 selfInterrupt)
 2. doAcquireInterruptibly 响应中断的获取 lock, 这里的响应中断, 指在线程获取 lock 过程中若被中断, 则直接抛出异常
 3. doAcquireNanos 响应中断及超时的获取 lock, 当线程被中断, 或获取超时, 则直接抛出异常, 获取失败
-
-
 ```
 
 ### 12. AbstractQueuedSynchronizer 独占的获取 lock 方法 acquire
 
-```
+```java
 /** acquire 是用于获取锁的最常用的模式
  * 步骤
  *      1. 调用 tryAcquire 尝试性的获取锁(一般都是又子类实现), 成功的话直接返回
@@ -664,13 +648,11 @@ public final void acquire(int arg){
         selfInterrupt();
     }
 }
-
-
 ```
 
 ### 13. AbstractQueuedSynchronizer 循环获取 lock 方法 acquireQueued
 
-```
+```java
     /**
      * 不支持中断的获取锁
      * 主逻辑:
@@ -701,13 +683,11 @@ public final void acquire(int arg){
             }
         }
     }
-
-
 ```
 
 ### 14. AbstractQueuedSynchronizer 支持中断获取 lock 方法 doAcquireInterruptibly
 
-```
+```java
 /**
  * Acquire in exclusive interruptible mode.
  * @param arg the acquire argument
@@ -736,13 +716,11 @@ private void doAcquireInterruptibly(int arg) throws InterruptedException{
         }
     }
 }
-
-
 ```
 
 ### 15. AbstractQueuedSynchronizer 支持超时 & 中断获取 lock 方法 doAcquireNanos(int arg, long nanosTimeout)
 
-```
+```java
 /**
  * Acquire in exclusive timed mode
  *
@@ -787,8 +765,6 @@ private boolean doAcquireNanos(int arg, long nanosTimeout) throws InterruptedExc
         }
     }
 }
-
-
 ```
 
 ### 16. AbstractQueuedSynchronizer 释放 lock 方法
@@ -799,13 +775,11 @@ private boolean doAcquireNanos(int arg, long nanosTimeout) throws InterruptedExc
 1. 调用子类的 tryRelease 方法释放获取的资源
 2. 判断是否完全释放lock(这里有 lock 重复获取的情况)
 3. 判断是否有后继节点需要唤醒, 需要的话调用unparkSuccessor进行唤醒
-
-
 ```
 
 看代码:
 
-```
+```java
 /**
  * Releasing in exclusive mode. Implemented by unblocking one or
  * more threads if {@link #tryRelease(int)} returns true.
@@ -864,8 +838,6 @@ private void unparkSuccessor(Node node) {
     if (s != null)
         LockSupport.unpark(s.thread);
 }
-
-
 ```
 
 ### 17. AbstractQueuedSynchronizer 获取共享 lock
@@ -878,8 +850,6 @@ private void unparkSuccessor(Node node) {
 3. 在 Sync Queue 里面进行自旋的方式获取锁(有可能会 repeatedly blocking and unblocking
 4. 当获取失败, 则判断是否可以 block(block的前提是前继节点被打上 SIGNAL 标示)
 5. 共享与独占获取lock的区别主要在于 在共享方式下获取 lock 成功会判断是否需要继续唤醒下面的继续获取共享lock的节点(及方法 doReleaseShared)
-
-
 ```
 
 共享方式获取 lock 主要分成下面 3 类:
@@ -888,13 +858,11 @@ private void unparkSuccessor(Node node) {
 1. acquireShared 不响应中断的获取lock, 这里的不响应中断指的是线程被中断后会被唤醒, 并且继续获取lock,在方法返回时, 根据刚才的获取过程是否被中断来决定是否要自己中断一下(方法 selfInterrupt)
 2. doAcquireSharedInterruptibly 响应中断的获取 lock, 这里的响应中断, 指在线程获取 lock 过程中若被中断, 则直接抛出异常
 3. doAcquireSharedNanos 响应中断及超时的获取 lock, 当线程被中断, 或获取超时, 则直接抛出异常, 获取失败
-
-
 ```
 
 ### 18. AbstractQueuedSynchronizer 获取共享 lock 方法 acquireShared
 
-```
+```java
 /**
  * 获取 共享 lock
  */
@@ -903,13 +871,11 @@ public final void acquireShared(int arg){
         doAcquireShared(arg);       // 2. 调用 doAcquireShared 当前 线程加入 Sync Queue 里面, 等待获取 lock
     }
 }
-
-
 ```
 
 ### 19. AbstractQueuedSynchronizer 获取共享 lock 方法 doAcquireShared
 
-```
+```java
 /**
  * Acquire in shared uninterruptible mode
  * @param arg the acquire argument
@@ -946,13 +912,11 @@ private void doAcquireShared(int arg){
         }
     }
 }
-
-
 ```
 
 ### 20. AbstractQueuedSynchronizer 获取共享 lock 方法 doAcquireSharedInterruptibly
 
-```
+```java
 /**
  * Acquire in shared interruptible mode
  * @param arg the acquire argument
@@ -985,13 +949,11 @@ private void doAcquireSharedInterruptibly(int arg) throws InterruptedException{
         }
     }
 }
-
-
 ```
 
 ### 21. AbstractQueuedSynchronizer 获取共享 lock 方法 doAcquireSharedNanos
 
-```
+```java
 /**
  * Acquire in shared timed mode
  *
@@ -1039,8 +1001,6 @@ private boolean doAcquireSharedNanos(int arg, long nanosTimeout) throws Interrup
         }
     }
 }
-
-
 ```
 
 ### 22. AbstractQueuedSynchronizer 释放共享 lock 方法
@@ -1052,8 +1012,6 @@ private boolean doAcquireSharedNanos(int arg, long nanosTimeout) throws Interrup
 ```
 1. 调用子类的 tryReleaseShared来进行释放 lock
 2. 判断是否需要唤醒后继节点来获取 lock
-
-
 ```
 
 调用流分类
@@ -1065,13 +1023,11 @@ private boolean doAcquireSharedNanos(int arg, long nanosTimeout) throws Interrup
 场景2: Sync Queue 里面存在 : 1(共享) -> 2(共享) -> 3(独占) -> 4(共享)
    节点1获取 lock 后调用 setHeadAndPropagate -> doReleaseShared 唤醒 节点2 —> 接下来 node 1 在 release 时再次 doReleaseShared, 而 node 2 在获取 lock 后
    这是发现后继节点不是共享的, 则 Node 2 不在 setHeadAndPropagate 中调用 doReleaseShared, 而Node 3 没有获取lock, 将 Node 2 变成 SIGNAL, 而 node 2 在 release lock 时唤醒 node 3, 而 node 3 最终在 release lock 时 释放 node 4， node 4在release lock后状态还是保持 0
-
-
 ```
 
 看代码:
 
-```
+```java
 private void doReleaseShared(){
     /**
      * Ensure that a release propagates, even if there are other
@@ -1106,13 +1062,11 @@ private void doReleaseShared(){
 
     }
 }
-
-
 ```
 
 ### 23. AbstractQueuedSynchronizer 判断是否阻塞线程方法 shouldParkAfterFailedAcquire
 
-```
+```java
     /**
      * shouldParkAfterFailedAcquire 这个方法最终的作用:
      *  本节点在进行 sleep 前一定需要给 前继节点打上 SIGNAL 标识(
@@ -1155,26 +1109,22 @@ private void doReleaseShared(){
 
         return false;
     }
-
-
 ```
 
 ### 24. AbstractQueuedSynchronizer 线程自己中断方法 selfInterrupt
 
-```
+```java
     /**
      * 自我中断, 这主要是怕外面的线程不知道整个获取的过程中是否中断过, 所以才 ....
      */
     static void selfInterrupt(){
         Thread.currentThread().interrupt();
     }
-
-
 ```
 
 ### 25. AbstractQueuedSynchronizer 中断线程方法 parkAndCheckInterrupt
 
-```
+```java
     /**
      * Convenience method to park and then check if interrupted
      *
@@ -1188,13 +1138,11 @@ private void doReleaseShared(){
         logger.info(Thread.currentThread().getName() + " " + "parkAndCheckInterrupt , ThreadName:" + Thread.currentThread().getName());
         return Thread.interrupted(); //  Thread.interrupted() 会清除中断标识, 并返上次的中断标识
     }
-
-
 ```
 
 ### 26. AbstractQueuedSynchronizer 一般方法
 
-```
+```java
    /******************************************* Queue inspection methods ****************************/
 
 
@@ -1530,8 +1478,6 @@ private void doReleaseShared(){
         }
         return condition.getWaitingThreads();
     }
-
-
 ```
 
 ### 27. 总结
