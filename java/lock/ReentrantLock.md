@@ -186,9 +186,9 @@ final boolean acquireQueued(final Node node, int arg) {
 标记 2 是线程获取锁失败的处理。这个时候，线程可能等着下一次获取，也可能不想要了，Node 变量 waitState 描述了线程的等待状态，一共四种情况：
 
 ```java
-static final int CANCELLED =  1;   //取消
+static final int CANCELLED =  1;   // 当前节点取消获取锁
 static final int SIGNAL    = -1;     //下个节点需要被唤醒
-static final int CONDITION = -2;  //线程在等待条件触发
+static final int CONDITION = -2;  // 当前节点线程在等待条件触发
 static final int PROPAGATE = -3; //（共享锁）状态需要向后传播
 ```
 
@@ -280,6 +280,7 @@ private void unparkSuccessor(Node node) {
         compareAndSetWaitStatus(node, ws, 0);
 
     Node s = node.next;
+    // s.waitStatus > 0 即 s.waitStatus=Node.CANCELLED，即当前节点放弃获取锁
     if (s == null || s.waitStatus > 0) {
         s = null;
         for (Node t = tail; t != null && t != node; t = t.prev)

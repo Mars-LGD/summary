@@ -117,6 +117,6 @@ public final boolean release(int arg) {
 ```
 
 总结  
-1、condition 提供了类似 object.wait 和 notify 的线程通信机制，但是 condition 支持多个等待队列，使用上更加灵活  
-2、condition 的 await 和 signal 的通信机制是 juc 中有界队列的实现基础，而有界队列又是线程池实现的基础，常用于生产者 - 消费者模式  
-3、condition 依赖于锁而存在。
+==1、condition 提供了类似 object.wait 和 notify 的线程通信机制，但是 condition 支持多个等待队列，使用上更加灵活== 
+==2、condition 的 await 和 signal 的通信机制是 juc 中有界队列的实现基础，而有界队列又是线程池实现的基础，常用于生产者 - 消费者模式== 
+==3、condition 依赖于锁而存在。==

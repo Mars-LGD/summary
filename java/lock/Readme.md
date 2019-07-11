@@ -295,7 +295,7 @@ public class Widget {
 
 独享锁也叫排他锁，是指该锁一次只能被一个线程所持有。如果线程 T 对数据 A 加上排它锁后，则其他线程不能再对 A 加任何类型的锁。获得排它锁的线程即能读数据又能修改数据。JDK 中的 synchronized 和 JUC 中 Lock 的实现类就是互斥锁。
 
-共享锁是指该锁可被多个线程所持有。如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。
+共享锁是指该锁可被多个线程所持有。==如果线程 T 对数据 A 加上共享锁后，则其他线程只能对 A 再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据==。
 
 独享锁与共享锁也是通过 AQS 来实现的，通过实现不同的方法，来实现独享或者共享。
 
@@ -309,13 +309,13 @@ public class Widget {
 
 那读锁和写锁的具体加锁方式有什么区别呢？在了解源码之前我们需要回顾一下其他知识。 在最开始提及 AQS 的时候我们也提到了 state 字段（int 类型，32 位），该字段用来描述有多少线程获持有锁。
 
-在独享锁中这个值通常是 0 或者 1（如果是重入锁的话 state 值就是重入的次数），在共享锁中 state 就是持有锁的数量。但是在 ReentrantReadWriteLock 中有读、写两把锁，所以需要在一个整型变量 state 上分别描述读锁和写锁的数量（或者也可以叫状态）。于是将 state 变量 “按位切割” 切分成了两个部分，高 16 位表示读锁状态（读锁个数），低 16 位表示写锁状态（写锁个数）。如下图所示：
+在独享锁中这个值通常是 0 或者 1（如果是重入锁的话 state 值就是重入的次数），在共享锁中 state 就是持有锁的数量。但是在 ReentrantReadWriteLock 中有读、写两把锁，所以需要在一个整型变量 state 上分别描述读锁和写锁的数量（或者也可以叫状态）。于是将 ==state 变量 “按位切割” 切分成了两个部分，高 16 位表示读锁状态（读锁个数），低 16 位表示写锁状态（写锁个数）==。如下图所示：
 
 ![](../../assets/8793e00a.png)
 
 了解了概念之后我们再来看代码，先看写锁的加锁源码：
 
-```
+```java
 protected final boolean tryAcquire(int acquires) {
 	Thread current = Thread.currentThread();
 	int c = getState(); 
@@ -335,8 +335,6 @@ protected final boolean tryAcquire(int acquires) {
 	setExclusiveOwnerThread(current); 
 	return true;
 }
-
-
 ```
 
 - 这段代码首先取到当前锁的个数 c，然后再通过 c 来获取写锁的个数 w。因为写锁是低 16 位，所以取低 16 位的最大值与当前的 c 做与运算（ int w = exclusiveCount©; ），高 16 位和 0 与运算后是 0，剩下的就是低位运算的值，同时也是持有写锁的线程数目。
@@ -351,7 +349,7 @@ tryAcquire() 除了重入条件（当前线程为获取了写锁的线程）之�
 
 接着是读锁的代码：
 
-```
+```java
 protected final int tryAcquireShared(int unused) {
     Thread current = Thread.currentThread();
     int c = getState();
@@ -379,8 +377,6 @@ protected final int tryAcquireShared(int unused) {
     }
     return fullTryAcquireShared(current);
 }
-
-
 ```
 
 可以看到在 tryAcquireShared(int unused) 方法中，如果其他线程已经获取了写锁，则当前线程获取读锁失败，进入等待状态。如果当前线程获取了写锁或者写锁未被获取，则当前线程（线程安全，依靠 CAS 保证）增加读状态，成功获取读锁。读锁的每次释放（线程安全的，可能有多个读线程同时释放读锁）均减少读状态，减少的值是 “1<<16”。所以读写锁才能实现读读的过程共享，而读写、写读、写写的过程互斥。
