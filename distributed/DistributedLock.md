@@ -10,15 +10,15 @@
 
 ------
 
-|        特性        | ReentrantLock |    mysql分布式锁    | zookeeper分布式锁  |         redis分布式锁          |
-| :----------------: | :-----------: | :-----------------: | :----------------: | :----------------------------: |
-| lock、unlock原子性 |    CAS自旋    |   insert、悲观锁    |  add/delete node   |           setnx、lua           |
-|   线程阻塞与唤醒   |  LockSupport  | select...for update | watch partent node |       subscribe/publish        |
-|       可重入       |     state     |       不支持        |       不知道       |            hash存储            |
-| 保证加解锁线程相同 | 记录ThreadId  | connection.commit() |    记录ThreadId    | 随机数/记录RedssionId+threadId |
-|  服务宕机避免死锁  |    无影响     |      自动释放       |      自动释放      |      过期时间或者自动续期      |
-|      单点问题      |    无影响     |       不支持        |       高可用       |          RedLock算法           |
-|        性能        |      好       |         差          |         差         |               好               |
+|        特性        | ReentrantLock |    mysql分布式锁    | zookeeper分布式锁  |           redis分布式锁           |
+| :----------------: | :-----------: | :-----------------: | :----------------: | :-------------------------------: |
+| lock、unlock原子性 |    CAS自旋    |   insert、悲观锁    |  add/delete node   |            setnx、lua             |
+|   线程阻塞与唤醒   |  LockSupport  | select...for update | watch partent node |         subscribe/publish         |
+|       可重入       |     state     |       不支持        |       不知道       |             hash存储              |
+| 保证加解锁线程相同 | 记录ThreadId  | connection.commit() |    记录ThreadId    |  随机数/记录RedssionId+threadId   |
+|  服务宕机避免死锁  |    无影响     |      自动释放       |      自动释放      |       过期时间或者自动续期        |
+|      单点问题      |    无影响     |       不支持        |  强一致性，高可用  | 主从若一致性，可用RedLock算法实现 |
+|        性能        |      好       |         差          |         差         |                好                 |
 
 # 数据库实现分布式锁
 

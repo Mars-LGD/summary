@@ -180,7 +180,7 @@ public RLock getLock(String name) {
 
 tryLock方法里的调用关系大致如下：
 
-[![img](../assets/2019041501-5690242.png)]
+![img](../assets/2019041501-5690242.png)
 
 **org.redisson.RedissonLock#tryLock**
 
@@ -292,7 +292,7 @@ public boolean tryLock(long waitTime, long leaseTime, TimeUnit unit) throws Inte
 **org.redisson.RedissonLock#tryLockInnerAsync**
 
 **流程图：**
-[![img](../assets/2019041502-5690242.png)]
+![img](../assets/2019041502-5690242.png)
 
 **实现源码：**
 
