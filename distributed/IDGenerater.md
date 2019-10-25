@@ -203,13 +203,125 @@ public class IdWorker {
 }
 ```
 
-## 6. 百度UidGenerator
+## 6. Zookeeper SessionId
+
+Session是Zookeeper中的会话实体，代表了一个客户端会话。SessionID用来唯一标识一个会话，因此Zookeeper必须保证sessionID的全局唯一性，在每次客户端向服务端发起"会话创建"请求时，服务端都会为其分配一个sessionID。那么Zookeeper是如何实现的呢？
+
+在SessionTracker初始化的时候，会调用initializeNextSession方法来生成一个初始化的sessionID，之后在Zookeeper的正常运行过程中，会在该sessionID的基础上为每个会话进行分配。
+
+```java
+/** 
+    * Generates an initial sessionId. High order byte is serverId, next 5 
+    * 5 bytes are from timestamp, and low order 2 bytes are 0s. 
+    */  
+   public static long initializeNextSession(long id) {  
+     long nextSid = 0;  
+       nextSid = (System.currentTimeMillis() << 24) >>> 8; //这里的版本是3.4.6  
+       nextSid =  nextSid | (id <<56);  
+       return nextSid;  
+   }  
+```
+
+上面这个方法就是Zookeeper初始化的算法。可以看出sessionID的生成可以分为以下5个步骤：
+
+1. 获取当前时间的毫秒表示。我们假设System.currentTimeMillis()取出的值是1380895182327，其64位二进制表示是：0000000000000000000000010100000110000011110001000100110111110111 其中红色部分表示高24位，下划线部分表示低40位。
+2. 左移24位。将步骤1中的数值左移24位，得到如下二进制表示的数值：0100000110000011110001000100110111110111000000000000000000000000
+3. 无符号右移8位。再将步骤2中的数值无符号右移8位，得到如下二进制表示的数值：0000000001000001100000111100010001001101111101110000000000000000
+4. 添加机器标识SID.在initializeNextSession方法中，出现了一个id变量，该变量就是当前Zookeeper服务器的SID值.SID就是当时配置在myid文件中的值，该值通常是一个整数。我们以2为例子。2的64位表示如下：0000000000000000000000000000000000000000000000000000000000000010。高56位都是0，将其左移56位，可以得到如下二进制表示的数值：0000001000000000000000000000000000000000000000000000000000000000
+5. 将步骤3和步骤4得到的64位数值进行“|”操作：0000001001000001100000111100010001001101111101110000000000000000。这样就完成了一个sessioID的初始化。我们就可以得到一个单机唯一的序列号。算法概括为：高8位确定了所在机器，后56位使用当前时间的毫秒表示进行随机。
+
+上面的算法就算完美吗？
+
+答案是否定的，在zookeeper3.5.0以上的版本中对这个方法进行的修改。3.5.0版本的方法如下：
+
+```java
+/** 
+    * Generates an initial sessionId. High order byte is serverId, next 5 
+    * 5 bytes are from timestamp, and low order 2 bytes are 0s. 
+    */  
+   public static long initializeNextSession(long id) {  
+       long nextSid;  
+       nextSid = (<span style="color: #ff0000;">Time.currentElapsedTime()</span> << 24) >>> 8;  
+       nextSid =  nextSid | (id <<56);  
+       return nextSid;  
+   }   
+```
+
+currentTimeMillis方法换成了另外一个方法。那么这个方法是什么呢？
+
+```java
+/** 
+     * Returns time in milliseconds as does System.currentTimeMillis(), 
+     * but uses elapsed time from an arbitrary epoch more like System.nanoTime(). 
+     * The difference is that if somebody changes the system clock, 
+     * Time.currentElapsedTime will change but nanoTime won't. On the other hand, 
+     * all of ZK assumes that time is measured in milliseconds. 
+     * @return  The time in milliseconds from some arbitrary point in time. 
+     */  
+    public static long currentElapsedTime() {  
+        return System.nanoTime() / 1000000;  
+    }  
+```
+
+使用了System.nanoTime()方法。原因是如果一些人去主动修改系统的时间，这样可能会出现问题。
+
+Zookeeper使用了2行代码完成了生成全局唯一值的方法。然而我们直接使用jdk1.5以上自带的UUID不是也能生成全局唯一的值吗？
+
+下面我们看看UUID和Zookeeper自己实现方法的一些比较：
+
+- 根据UUID类的注释，A UUID represents a 128-bit value.一个UUID代表一个128位的值。然而Zookeeper使用64就产生了一个全局唯一的值。从资源占用上节省了一半。
+- 从代码复杂程度上看，UUID的生成是严格按照国际标准实现的。算法的核心思想是结合机器的网卡、当地时间、一个随即数来生成。代码的复杂程度要比Zookeeper自身实现的高。复杂度高意味着在执行过程中需要消耗的资源就会增多。
+- UUID的生成不需要外界因素的参与。直观的将就是不需要传递任何参数就可以完成。而Zookeeper自身实现的方法需要一个id，这个id就是我们在Zookeeper中配置的myid值。它的生成时需要条件的。
+
+总结：
+
+- 没有最好只有适合。适合自身的需要并且能够考虑到性能、资源的使用等方面才能设计出好的策略。
+- 底层的运算使用位运算比较理想。很多地方都是这样运用的。毕竟位运算的速度是最快的。
+
+## 7. 小米推送msgId
+
+```java
+/**
+     * 生成msgId。 为了保证msgId的唯一性，msgId的生成算法如下： 
+     * 1. 1位的消息类型（a－alias，s－single regid，t－topic）； 
+     * 2. 5位的机器名字编码； 
+     * 3. 2位的线程id；
+     * 4. 12位的时间戳； 
+     * 5. 2位的随机字符串。
+     * <p>
+     * ie: rsm01b01414548504937dR, alm05b0141454868094117 ...
+     */
+    private static String buildId(char prefix, long ts) {
+        StringBuilder sb = new StringBuilder(1 + TIMESTAMP_LEN + TIMESTAMP_LEN + RANDOM_STR_LEN).append(prefix);
+        fillChars(sb, SHORT_HOST_STR, 5, 'X');
+        fillChars(sb, (Thread.currentThread().getId() % 100) + "", 2, '0');
+        String strTs = "" + ts;
+        fillChars(sb, strTs, TIMESTAMP_LEN, '0');
+        for (int i = 0; i < RANDOM_STR_LEN; ++i) {
+            sb.append(randomChar());
+        }
+        return sb.toString();
+    }
+```
+
+
+
+## 8. Mongo ObjectId
+
+ObjectId是一个12字节的  [BSON](https://link.jianshu.com?t=http://docs.mongodb.org/manual/reference/glossary/#term-bson) 类型字符串。按照字节顺序，一次代表：
+
+ 4字节：UNIX时间戳
+ 3字节：表示运行MongoDB的机器
+ 2字节：表示生成此_id的进程
+ 3字节：由一个随机数开始的计数器生成的值
+
+## 9. 百度UidGenerator
 
 UidGenerator是百度开源的分布式ID生成器，基于于snowflake算法的实现，看起来感觉还行。不过，国内开源的项目维护性真是担忧。
 
 具体可以参考官网说明：[github.com/baidu/uid-g…](https://link.juejin.im?target=https%3A%2F%2Fgithub.com%2Fbaidu%2Fuid-generator%2Fblob%2Fmaster%2FREADME.zh_cn.md)
 
-# 美团Leaf实现
+## 10. 美团Leaf实现
 
 Leaf 是美团开源的分布式ID生成器，能保证全局唯一性、趋势递增、单调递增、信息安全，但也需要依赖关系数据库、Zookeeper等中间件。
 
