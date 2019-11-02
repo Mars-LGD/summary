@@ -657,7 +657,16 @@ ZK 监视点，典型特征：
    - 触发监视点
    - 会话过期、或关闭
 
-### 8.2 常见问题
+### 8.2 watcher原理框架
+
+![image-20191028172158502](../assets/image-20191028172158502.png)
+
+由图看出，zk的watcher由客户端，客户端WatchManager，zk服务器组成。整个过程涉及了消息通信及数据存储。
+
+- zk客户端向zk服务器注册watcher的同时，会将watcher对象存储在客户端的watchManager。
+- Zk服务器触发watcher事件后，会向客户端发送通知，客户端线程从watchManager中回调watcher执行相应的功能。
+
+### 8.3 常见问题
 
 #### 问题 1：单次触发，是否会丢失事件
 
