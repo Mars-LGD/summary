@@ -39,8 +39,6 @@ class BasicObjectLock {
 class BasicLock {
     volatile markOop _displaced_header;
 }
-
-
 ```
 
 4、**UseBiasedLocking** 标识虚拟机是否开启偏向锁功能，如果开启则执行 fast_enter 逻辑，否则执行 slow_enter；
