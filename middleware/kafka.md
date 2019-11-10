@@ -14,3 +14,5 @@
 
 [Kafka 事务性之幂等性实现](http://matt33.com/2018/10/24/kafka-idempotent/)
 
+[Kafka 源码解析之 Producer 发送模型（一）](https://matt33.com/2017/06/25/kafka-producer-send-module/)
+
