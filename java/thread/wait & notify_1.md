@@ -5,7 +5,7 @@
 
 最简单的东西，往往包含了最复杂的实现，因为需要为上层的存在提供一个稳定的基础，Object 作为 java 中所有对象的基类，其存在的价值不言而喻，其中 wait 和 notify 方法的实现多线程协作提供了保证。
 
-```
+```java
 public class WaitNotifyCase {
     public static void main(String[] args) {
         final Object lock = new Object();
@@ -46,8 +46,6 @@ public class WaitNotifyCase {
         }).start();
     }
 }
-
-
 ```
 
 ##### 执行结果：
@@ -77,7 +75,7 @@ lock 对象、线程 A 和线程 B 三者是一种什么关系？根据上面的
 
 ##### 为什么要使用 synchronized?
 
-```
+```java
 static void Sort(int [] array) {
     // synchronize this operation so that some other thread can't
     // manipulate the array while we are sorting it. This assumes that other
@@ -86,8 +84,6 @@ static void Sort(int [] array) {
         // now sort elements in array
     }
 }
-
-
 ```
 
 synchronized 代码块通过 javap 生成的字节码中包含 ** monitorenter ** 和 ** monitorexit ** 指令。

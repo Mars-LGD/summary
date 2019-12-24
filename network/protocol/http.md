@@ -4,8 +4,6 @@
 
 日期： [2016年8月19日](http://www.ruanyifeng.com/blog/2016/08/)
 
-[感谢 腾讯课堂NEXT学院 赞助本站，腾讯官方的前端课程 免费试学。![腾讯课堂 NEXT 学院](../../assets/bg2019100802.jpg)](https://ke.qq.com/next_detail/index.html?id=1&from=800007110)
-
 HTTP 协议是互联网的基础协议，也是网页开发的必备知识，最新版本 HTTP/2 更是让它成为技术热点。
 
 本文介绍 HTTP 协议的历史演变和设计思路。
